@@ -47,6 +47,37 @@ app.kubernetes.io/component: api
 app.kubernetes.io/component: web
 {{- end }}
 
+{{- define "internal-dashboard.redisPassword" -}}
+{{- if not .Values.redis.password }}
+{{- $secret := lookup "v1" "Secret" .Release.Namespace (printf "%s-api" (include "internal-dashboard.fullname" .)) }}
+{{- $existing := "" }}
+{{- if and $secret (hasKey $secret.data "redis-password") }}
+{{- $existing = index $secret.data "redis-password" | b64dec }}
+{{- end }}
+{{- $_ := set .Values.redis "password" (default (randAlphaNum 32) $existing) }}
+{{- end }}
+{{- .Values.redis.password }}
+{{- end }}
+
+{{- define "internal-dashboard.podSecurityContext" -}}
+automountServiceAccountToken: false
+securityContext:
+  runAsNonRoot: true
+  runAsUser: {{ .runAsUser }}
+  runAsGroup: {{ .runAsUser }}
+  fsGroup: {{ .runAsUser }}
+  seccompProfile:
+    type: RuntimeDefault
+{{- end }}
+
+{{- define "internal-dashboard.containerSecurityContext" -}}
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+{{- end }}
+
 {{- define "internal-dashboard.redis.selectorLabels" -}}
 {{ include "internal-dashboard.selectorLabels" . }}
 app.kubernetes.io/component: redis

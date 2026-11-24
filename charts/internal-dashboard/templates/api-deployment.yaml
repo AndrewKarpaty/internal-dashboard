@@ -7,6 +7,7 @@ metadata:
     app.kubernetes.io/component: api
 spec:
   replicas: {{ .Values.api.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -23,19 +24,17 @@ spec:
         checksum/config: {{ include (print $.Template.BasePath "/api-configmap.yaml") . | sha256sum }}
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 10001
-        runAsGroup: 10001
+      {{- include "internal-dashboard.podSecurityContext" (dict "runAsUser" 10001) | nindent 6 }}
+      terminationGracePeriodSeconds: {{ .Values.api.terminationGracePeriodSeconds }}
       containers:
         - name: api
           image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
           imagePullPolicy: {{ .Values.api.image.pullPolicy }}
-          securityContext:
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
+          {{- include "internal-dashboard.containerSecurityContext" . | nindent 10 }}
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "{{ .Values.api.preStopSleepSeconds }}"]
           ports:
             - name: http
               containerPort: {{ .Values.api.containerPort }}

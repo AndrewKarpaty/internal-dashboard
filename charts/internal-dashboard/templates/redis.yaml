@@ -7,6 +7,7 @@ metadata:
     app.kubernetes.io/component: redis
 spec:
   replicas: {{ .Values.redis.replicaCount }}
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   strategy:
     type: Recreate
   selector:
@@ -16,11 +17,39 @@ spec:
     metadata:
       labels:
         {{- include "internal-dashboard.redis.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
     spec:
+      {{- include "internal-dashboard.podSecurityContext" (dict "runAsUser" 999) | nindent 6 }}
       containers:
         - name: redis
           image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
           imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          {{- include "internal-dashboard.containerSecurityContext" . | nindent 10 }}
+          args:
+            - --port
+            - "{{ .Values.redis.port }}"
+            - --requirepass
+            - $(REDIS_PASSWORD)
+            - --maxmemory
+            - {{ .Values.redis.maxmemory | quote }}
+            - --maxmemory-policy
+            - {{ .Values.redis.maxmemoryPolicy | quote }}
+            - --save
+            - ""
+            - --appendonly
+            - "no"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "internal-dashboard.fullname" . }}-api
+                  key: redis-password
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "internal-dashboard.fullname" . }}-api
+                  key: redis-password
           ports:
             - name: redis
               containerPort: {{ .Values.redis.port }}
@@ -44,6 +73,13 @@ spec:
             limits:
               cpu: 200m
               memory: 64Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: 16Mi
 ---
 apiVersion: v1
 kind: Service

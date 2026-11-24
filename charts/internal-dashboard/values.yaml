@@ -1,5 +1,6 @@
 nameOverride: ""
 fullnameOverride: ""
+revisionHistoryLimit: 3
 
 api:
   replicaCount: 1
@@ -8,6 +9,8 @@ api:
     tag: local
     pullPolicy: IfNotPresent
   env: prod
+  terminationGracePeriodSeconds: 30
+  preStopSleepSeconds: 5
   service:
     port: 8000
     targetPort: http
@@ -48,7 +51,7 @@ web:
   service:
     port: 80
     targetPort: http
-  containerPort: 80
+  containerPort: 8080
   caddyRoot: /srv/www/dist
 
 redis:
@@ -58,6 +61,9 @@ redis:
     tag: 7-alpine
     pullPolicy: IfNotPresent
   port: 6379
+  password: ""
+  maxmemory: 48mb
+  maxmemoryPolicy: allkeys-lru
 
 ingress:
   enabled: true
