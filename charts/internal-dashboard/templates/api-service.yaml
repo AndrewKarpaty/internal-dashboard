@@ -13,6 +13,4 @@ spec:
       targetPort: {{ .Values.api.service.targetPort }}
       protocol: TCP
   selector:
-    app.kubernetes.io/name: {{ include "internal-dashboard.name" . }}
-    app.kubernetes.io/instance: {{ .Release.Name }}
-    app.kubernetes.io/component: backend
+    {{- include "internal-dashboard.api.selectorLabels" . | nindent 4 }}
