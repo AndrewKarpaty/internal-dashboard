@@ -2,16 +2,76 @@ name: CI
 
 on:
   push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  images:
+    name: Build ${{ matrix.name }} image
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            context: .
+            file: Dockerfile
+            image: internal-dashboard-api
+          - name: frontend
+            context: ./frontend
+            file: ./frontend/Dockerfile
+            image: internal-dashboard-frontend
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build app image
-        run: docker buildx build .
+      - uses: docker/setup-buildx-action@v3
 
-      - name: Build frontend image
-        run: docker buildx build ./frontend
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          push: false
+          tags: ${{ matrix.image }}:${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+  chart:
+    name: Validate Helm chart
+    runs-on: ubuntu-latest
+    env:
+      CHART_DIR: charts/internal-dashboard
+      KUBECONFORM_VERSION: v0.6.7
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Install kubeconform
+        run: |
+          curl -sSfL -o /tmp/kubeconform.tar.gz \
+            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
+          sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
+          kubeconform -v
+
+      - name: Helm lint
+        run: helm lint --strict "$CHART_DIR"
+
+      - name: Helm template
+        run: helm template dashboard "$CHART_DIR" -n dashboard > rendered.yaml
+
+      - name: Validate rendered manifests
+        run: |
+          kubeconform -strict -summary -ignore-missing-schemas \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            rendered.yaml

@@ -6,32 +6,33 @@ api:
   image:
     repository: internal-dashboard-api
     tag: local
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
+  env: prod
   service:
     port: 8000
-    targetPort: 8000
+    targetPort: http
   containerPort: 8080
   resources:
     requests:
       cpu: 50m
-      memory: 8Mi
+      memory: 96Mi
     limits:
       cpu: 200m
-      memory: 16Mi
+      memory: 128Mi
   probes:
     liveness:
-      path: /api/ready
-      port: 8080
-      initialDelaySeconds: 5
-      periodSeconds: 3
-      timeoutSeconds: 1
-      failureThreshold: 2
-    readiness:
       path: /api/health
-      port: 8080
+      port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 2
+      failureThreshold: 3
+    readiness:
+      path: /api/ready
+      port: http
       initialDelaySeconds: 3
-      periodSeconds: 3
-      timeoutSeconds: 1
+      periodSeconds: 5
+      timeoutSeconds: 2
       failureThreshold: 2
 
 web:
@@ -43,12 +44,12 @@ web:
   frontend:
     repository: internal-dashboard-frontend
     tag: local
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   service:
     port: 80
-    targetPort: 8080
+    targetPort: http
   containerPort: 80
-  caddyRoot: /srv/www/build
+  caddyRoot: /srv/www/dist
 
 redis:
   replicaCount: 1
@@ -62,12 +63,12 @@ ingress:
   enabled: true
   className: traefik
   host: dashboard.local
-  stripApiPrefix: true
+  stripApiPrefix: false
 
 networkPolicy:
   enabled: true
   apiIngressPort: 8080
-  redisIngressPort: 6380
+  redisIngressPort: 6379
   traefikNamespace: kube-system
 
 quota:

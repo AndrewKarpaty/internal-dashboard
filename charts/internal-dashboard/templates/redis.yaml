@@ -7,6 +7,8 @@ metadata:
     app.kubernetes.io/component: redis
 spec:
   replicas: {{ .Values.redis.replicaCount }}
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "internal-dashboard.redis.selectorLabels" . | nindent 6 }}
@@ -23,6 +25,18 @@ spec:
             - name: redis
               containerPort: {{ .Values.redis.port }}
               protocol: TCP
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "-p", "{{ .Values.redis.port }}", "ping"]
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
           resources:
             requests:
               cpu: 20m
@@ -43,7 +57,7 @@ spec:
   ports:
     - name: redis
       port: {{ .Values.redis.port }}
-      targetPort: {{ .Values.redis.port }}
+      targetPort: redis
       protocol: TCP
   selector:
     {{- include "internal-dashboard.redis.selectorLabels" . | nindent 4 }}
