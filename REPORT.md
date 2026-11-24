@@ -45,7 +45,7 @@
 Стало (на `push` і `pull_request`):
 - `permissions: contents: read`, `concurrency` з `cancel-in-progress` по ref.
 - Job `images`: matrix (api, frontend), `docker/setup-buildx-action@v3` + `docker/build-push-action@v6` (`push: false`, тег `<image>:<sha>`, GHA cache).
-- Job `chart`: `azure/setup-helm@v4` (Helm v3.16.4), `helm lint --strict`, `helm template` → `kubeconform -strict` (схеми Kubernetes + CRDs-catalog для Traefik).
+- Job `chart`: `azure/setup-helm@v4` (Helm v3.16.4), `helm lint --strict`, `helm template`.
 
 ## Вивід після чистого деплою
 

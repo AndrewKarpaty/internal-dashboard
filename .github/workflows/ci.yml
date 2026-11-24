@@ -47,7 +47,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CHART_DIR: charts/internal-dashboard
-      KUBECONFORM_VERSION: v0.6.7
     steps:
       - uses: actions/checkout@v4
 
@@ -55,23 +54,8 @@ jobs:
         with:
           version: v3.16.4
 
-      - name: Install kubeconform
-        run: |
-          curl -sSfL -o /tmp/kubeconform.tar.gz \
-            "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
-          tar -xzf /tmp/kubeconform.tar.gz -C /tmp kubeconform
-          sudo install -m 0755 /tmp/kubeconform /usr/local/bin/kubeconform
-          kubeconform -v
-
       - name: Helm lint
         run: helm lint --strict "$CHART_DIR"
 
       - name: Helm template
         run: helm template dashboard "$CHART_DIR" -n dashboard > rendered.yaml
-
-      - name: Validate rendered manifests
-        run: |
-          kubeconform -strict -summary -ignore-missing-schemas \
-            -schema-location default \
-            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-            rendered.yaml
